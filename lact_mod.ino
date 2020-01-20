@@ -1,25 +1,56 @@
-// Ejemplo de prototipo de medidor de pulso
+#include <LiquidCrystal_I2C.h>
 
-// la variable pulso contiene los datos brutos entrantes pudiendo  variar entre 0-1024
 
-int pulso; // Contiene los datos de la lectura en bruto 
 
-int limite = 550; // Determina que señal se va a interpretar como pulso
+#define UpperThreshold 550
+#define LowerThreshold 500
+
+bool BPMTiming    = false;
+bool BeatComplete = false;
+int LastTime      = 0;
+int BPM           = 0;
+int lcdColumns    = 16;
+int lcdRows       = 2;
+
+LiquidCrystal_I2C lcd(0x3F, lcdColumns, lcdRows); 
 
 void setup() {
-
-  // Inicilizamos el puerto serial
+  lcd.init();                     
+  lcd.backlight();
   Serial.begin(9600);
 }
-
+ 
+ 
 void loop() {
+ 
+  int value = analogRead(36);
 
-  pulso = analogRead(36); // Leemos de la entrada analogica 36 y guardamos el valor
+  // calc bpm
+  if (value>UpperThreshold)   {
+      if (BeatComplete) {
+          BPM = millis()-LastTime;
+          BPM = int(60/(float(BPM)/1000));
+          BPMTiming =false;
+          BeatComplete =false;
+      }
+      if (BPMTiming == false) {
+          BPMTiming = true;
+          LastTime  = millis();
+      }
+  }
 
-  // Envíe el valor de pulso al Plotter serial. Comentar si queremos visualizar en “serial ploter”
-  Serial.println(pulso);
-
-
-  //Retardo de 35ms
-  delay(35);
+  if (value < LowerThreshold & BPMTiming) {
+      BeatComplete = true;
+      // output bpm to serial monitor
+      Serial.print(BPM);
+      Serial.println(" BPM");
+      lcd.setCursor(0, 0);
+      lcd.print("B.P.M.");
+      lcd.setCursor(0,1);
+      lcd.print(BPM);
+      
+      
+      delay(1000);
+      lcd.clear();
+  }
 }
